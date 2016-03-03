@@ -1,0 +1,52 @@
+</<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="../../favicon.ico">
+
+    <title>Sming Framework WiFi Network configuration</title>
+
+    <link href="bootstrap.css" rel="stylesheet">
+    <link href="style.css" rel="stylesheet">
+
+    <script src="jquery.js"></script>
+    <script src="jqColorPicker.min.js"></script>
+</head>
+<script>
+	function colorPickerRenderCallback($elem, toggled) {
+		if (toggled === false){
+			console.log('render ' + toggled);
+			console.log($elem);
+			var rgb = this.color.colors.RND.rgb;
+			var brightness = this.color.colors.alpha * 255;
+			console.log('rgb.r:' + rgb.r + ', brightness:' + brightness);
+			return;
+			$.ajax({
+				url:'/ajax/setPixels',
+				type: 'POST',
+				data: {
+					'brightness': brightness,
+					'r': rgb.r, 
+					'g': rgb.g, 
+					'b': rgb.b
+				}
+			});
+		}
+	}
+	$(document).ready(function () {
+		$('.color').colorPicker({
+			renderCallback:  colorPickerRenderCallback,
+			});
+	})
+</script>
+<body>
+<div class="input-toggles">
+		<input class="color no-alpha" value="rgb(162, 63, 3)" />
+	</div>
+</body>
+</html>
+
