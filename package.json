@@ -2,7 +2,7 @@
   "name": "vtm-lamp",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "webserver.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/dlobato/VTMLamp/issues"
   },
-  "homepage": "https://github.com/dlobato/VTMLamp#readme"
+  "homepage": "https://github.com/dlobato/VTMLamp#readme",
+  "dependencies": {
+    "express": "^4.13.4"
+  }
 }
