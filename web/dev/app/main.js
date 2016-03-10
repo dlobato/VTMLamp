@@ -4,7 +4,7 @@ require('./helpers/resources').init();
 new Vue({
     el: 'body',
     data: {
-        name: 'World'
+        name: ''
     },
     ready: function () {
         console.log('Application Ready');
