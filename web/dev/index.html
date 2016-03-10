@@ -27,7 +27,11 @@
                 <li class="disabled"><a href="#">Debug</a></li>
             </ul>
             <ul class="nav navbar-nav navbar-right">
-                <li><a href="#"><span class="label label-success">Connected to Votum</span></a></li>
+                <p class="navbar-text">Refresh in {{refreshSeconds}} seconds</p>
+                <li><a href="#">
+                    <span v-if="connected" class="label label-success">Connected to {{network}}</span>
+                    <span v-if="!connected" class="label label-danger">Not Connected</span>
+                </a></li>
             </ul>
         </div><!-- /.navbar-collapse -->
     </div><!-- /.container-fluid -->
