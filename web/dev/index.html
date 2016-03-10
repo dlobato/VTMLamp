@@ -3,10 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <title>Title</title>
+    <link rel="stylesheet" href="/bootstrap.css">
 </head>
 <body>
-Hello, {{name}}<br/>
-<input type="text" v-model="name">
+<div class="container">
+    <h1>Hello, {{name}}</h1>
+    <input type="text" class="form-control" v-model="name">
+</div>
 <script src="/main.js"></script>
 </body>
 </html>
