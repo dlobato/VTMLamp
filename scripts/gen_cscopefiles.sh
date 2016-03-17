@@ -1,5 +1,8 @@
 #!/bin/bash
 
+#In order to create dependency files SMING makefile should be modified
+#to add the cflags "-MD -MP"
+
 PROJECTS="${PROJECT_ROOT:-`pwd`} $SMING_HOME"
 BUILD_DIR="out/build"
 

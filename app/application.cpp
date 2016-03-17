@@ -13,7 +13,20 @@
 #define WIFI_SSID "Vodafone-9EA315"
 #define WIFI_PWD "10203040"
 
+enum LampProgram{
+  COLORWIPE_WHITE,
+  COLORWIPE_RED,
+  COLORWIPE_GREEN,
+  COLORWIPE_BLUE,
+  RAINBOW,
+  RAINBOW_CYCLE,
+  MAX_LAMP_PROGRAM
+};
+LampProgram lampMode = RAINBOW_CYCLE;
+uint8_t brightness = 255;
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
+Timer displayTimer;
+
 
 HttpServer httpServer;
 FTPServer ftpServer;
@@ -21,6 +34,33 @@ FTPServer ftpServer;
 BssList networks;
 String network, password;
 Timer connectionTimer;
+
+void displayTaskCallback(){
+  switch(lampMode){
+    case COLORWIPE_WHITE:
+      colorWipeStep(strip, 255 , 255, 255);
+      break;
+    case COLORWIPE_RED:
+      colorWipeStep(strip, 255, 0, 0);
+      break;
+    case COLORWIPE_GREEN:
+      colorWipeStep(strip, 0, 255, 0);
+      break;
+    case COLORWIPE_BLUE:
+      colorWipeStep(strip, 0, 0, 255);
+      break;
+    case RAINBOW:
+      rainbowStep(strip);
+      break;
+    case RAINBOW_CYCLE:
+      rainbowCycleStep(strip);
+      break;
+    default:
+      lampMode = COLORWIPE_WHITE;
+  }
+  strip.setBrightness(brightness);
+  strip.show();
+}
 
 void onIndex(HttpRequest &request, HttpResponse &response)
 {
@@ -79,6 +119,26 @@ void onFile(HttpRequest &request, HttpResponse &response)
 	}
 }
 
+/**
+*
+request json: none
+response json:
+	[
+		'status': boolean, //always true
+		'connected': boolean, //true if station connected
+		'network': string, //if connected, the SSID of the network, not available otherwise
+		'available': //list of available networks
+			[
+				[
+					'id': string, //BSS hash ID
+					'title': string, //SSID
+					'signal': signed int,  //RSSI
+					'encryption': string //encription method, one of: "OPEN","WEP","WPA_PSK","WPA2_PSK","WPA_WPA2_PSK"
+				],
+				...
+			],
+	]
+*/
 void onAjaxNetworkList(HttpRequest &request, HttpResponse &response)
 {
 	JsonObjectStream* stream = new JsonObjectStream();
@@ -122,6 +182,20 @@ void makeConnection()
 	network = ""; // task completed
 }
 
+/**
+*
+request json:
+	[
+		'network': string,
+		'password': string
+	]
+response json:
+	[
+		'status': boolean, //false if already updating or connecting, true otherwise
+		'connected': boolean, //true if station connected
+		'error': string //if connections fails status error
+	]
+*/
 void onAjaxConnect(HttpRequest &request, HttpResponse &response)
 {
 	JsonObjectStream* stream = new JsonObjectStream();
@@ -164,48 +238,18 @@ void onAjaxConnect(HttpRequest &request, HttpResponse &response)
 	response.sendJsonObject(stream);
 }
 
-void onAjaxSetStripProgram(HttpRequest &request, HttpResponse &response)
+void onAjaxSetLampProgram(HttpRequest &request, HttpResponse &response)
 {
 	JsonObjectStream* stream = new JsonObjectStream();
 	JsonObject& json = stream->getRoot();
 
-	uint8_t brightness = 0;
-	uint8_t  r = 0;
-	uint8_t  g = 0;
-	uint8_t  b = 0;
-
 	long tmp_param = request.getPostParameter("brightness").toInt();
-	if (tmp_param >= 0 && tmp_param < 256)
-	{
-		brightness = tmp_param;
-	}
+	brightness = (uint8_t)max(0, min(tmp_param, 255));
 
-	tmp_param = request.getPostParameter("r").toInt();
-	if (tmp_param >= 0 && tmp_param < 256)
-	{
-		r = tmp_param;
-	}
-
-	tmp_param = request.getPostParameter("g").toInt();
-	if (tmp_param >= 0 && tmp_param < 256)
-	{
-		g = tmp_param;
-	}
-
-	tmp_param = request.getPostParameter("b").toInt();
-	if (tmp_param >= 0 && tmp_param < 256)
-	{
-		b = tmp_param;
-	}
-
-	debugf("setting pixels to: brightness=%d, r=%d, g=%d, b=%d", brightness, r, g, b);
-	setColor(strip, brightness, r, g, b);
+	tmp_param = request.getPostParameter("program").toInt();
+	lampMode = (LampProgram)max(0, min(tmp_param, MAX_LAMP_PROGRAM-1));
 
 	json["status"] = (bool)true;
-	json["brightness"] = brightness;
-	json["r"] = r;
-	json["g"] = g;
-	json["b"] = b;
 
 	response.setAllowCrossDomainOrigin("*");
 	response.sendJsonObject(stream);
@@ -218,7 +262,7 @@ void startHttpServer()
 	httpServer.addPath("/ipconfig", onIpConfig);
 	httpServer.addPath("/ajax/get-networks", onAjaxNetworkList);
 	httpServer.addPath("/ajax/connect", onAjaxConnect);
-	httpServer.addPath("/ajax/set-strip-program", onAjaxSetStripProgram);
+	httpServer.addPath("/ajax/set-lamp-program", onAjaxSetLampProgram);
 	httpServer.setDefaultHandler(onFile);
 }
 
@@ -295,7 +339,10 @@ void init()
 
 	//init neopixel strip
 	strip.begin();  //init port
-	setColor(strip, 0, 0, 0, 0);
+	strip.setBrightness(0);
+	strip.show();
+
+	displayTimer.initializeMs(50, displayTaskCallback).start();
 
 	// Run WEB server on system ready
 	System.onReady(startServers);

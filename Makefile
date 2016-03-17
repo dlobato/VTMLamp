@@ -8,7 +8,7 @@ include ./Makefile-user.mk
 # Important parameters check.
 # We need to make sure SMING_HOME and ESP_HOME variables are set.
 # You can use Makefile-user.mk in each project or use enviromental variables to set it globally.
- 
+
 ifndef SMING_HOME
 $(error SMING_HOME is not set. Please configure it in Makefile-user.mk)
 endif
@@ -20,5 +20,15 @@ endif
 ifeq ($(RBOOT_ENABLED), 1)
 include $(SMING_HOME)/Makefile-rboot.mk
 else
-include $(SMING_HOME)/Makefile-project.mk
+include Makefile-project.mk
 endif
+
+BUILDDIR=out/build
+
+cscope.files: $(BUILDDIR)/app.out
+	scripts/gen_cscopefiles.sh
+
+cscope.out: cscope.files
+	cscope -q -b -k
+
+cscope: cscope.out
