@@ -121,7 +121,7 @@ void onFile(HttpRequest &request, HttpResponse &response)
 
 /**
 *
-request json: none
+request params: none
 response json:
 	[
 		'status': boolean, //always true
@@ -184,7 +184,7 @@ void makeConnection()
 
 /**
 *
-request json:
+request params:
 	[
 		'network': string,
 		'password': string
@@ -238,18 +238,60 @@ void onAjaxConnect(HttpRequest &request, HttpResponse &response)
 	response.sendJsonObject(stream);
 }
 
-void onAjaxSetLampProgram(HttpRequest &request, HttpResponse &response)
+/**
+*
+request params:
+	[
+		'brightness': int [0,255],
+		'program': int (COLORWIPE_WHITE=0, COLORWIPE_RED = 1, COLORWIPE_GREEN = 2, COLORWIPE_BLUE = 3, RAINBOW = 4, RAINBOW_CYCLE = 5)
+	]
+response json:
+	[
+		'status': boolean, //always true
+	]
+*/
+void onAjaxSetLampStatus(HttpRequest &request, HttpResponse &response)
 {
 	JsonObjectStream* stream = new JsonObjectStream();
 	JsonObject& json = stream->getRoot();
 
-	long tmp_param = request.getPostParameter("brightness").toInt();
-	brightness = (uint8_t)max(0, min(tmp_param, 255));
 
-	tmp_param = request.getPostParameter("program").toInt();
-	lampMode = (LampProgram)max(0, min(tmp_param, MAX_LAMP_PROGRAM-1));
+  String param = request.getPostParameter("brightness");
+  if (param.length() > 0){
+    long tmp_param = param.toInt();
+    brightness = (uint8_t)max(0, min(tmp_param, 255));
+  }
+
+  param = request.getPostParameter("program");
+  if (param.length() > 0){
+	  long tmp_param = param.toInt();
+    lampMode = (LampProgram)max(0, min(tmp_param, MAX_LAMP_PROGRAM-1));
+  }
 
 	json["status"] = (bool)true;
+
+	response.setAllowCrossDomainOrigin("*");
+	response.sendJsonObject(stream);
+}
+
+/**
+*
+request params:
+response json:
+	[
+		'status': boolean, //always true
+    'brightness': int [0,255],
+		'program': int (COLORWIPE_WHITE=0, COLORWIPE_RED = 1, COLORWIPE_GREEN = 2, COLORWIPE_BLUE = 3, RAINBOW = 4, RAINBOW_CYCLE = 5)
+	]
+*/
+void onAjaxGetLampStatus(HttpRequest &request, HttpResponse &response)
+{
+	JsonObjectStream* stream = new JsonObjectStream();
+	JsonObject& json = stream->getRoot();
+
+	json["status"] = (bool)true;
+  json["brightness"] = brightness;
+  json["program"] = (int)lampMode;
 
 	response.setAllowCrossDomainOrigin("*");
 	response.sendJsonObject(stream);
@@ -262,7 +304,8 @@ void startHttpServer()
 	httpServer.addPath("/ipconfig", onIpConfig);
 	httpServer.addPath("/ajax/get-networks", onAjaxNetworkList);
 	httpServer.addPath("/ajax/connect", onAjaxConnect);
-	httpServer.addPath("/ajax/set-lamp-program", onAjaxSetLampProgram);
+	httpServer.addPath("/ajax/set-lamp-status", onAjaxSetLampStatus);
+  httpServer.addPath("/ajax/get-lamp-status", onAjaxGetLampStatus);
 	httpServer.setDefaultHandler(onFile);
 }
 
