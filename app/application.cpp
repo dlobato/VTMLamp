@@ -2,7 +2,7 @@
 #include <SmingCore/SmingCore.h>
 #include <AppSettings.h>
 #include <Adafruit_NeoPixel/Adafruit_NeoPixel.h>
-#include <strip_programs.h>
+#include <lamp.h>
 
 // Which pin on the Esp8266 is connected to the NeoPixels?
 #define PIN            4
@@ -10,23 +10,7 @@
 // How many NeoPixels are attached to the Esp8266?
 #define NUMPIXELS      2
 
-#define WIFI_SSID "Vodafone-9EA315"
-#define WIFI_PWD "10203040"
-
-enum LampProgram{
-  COLORWIPE_WHITE,
-  COLORWIPE_RED,
-  COLORWIPE_GREEN,
-  COLORWIPE_BLUE,
-  RAINBOW,
-  RAINBOW_CYCLE,
-  MAX_LAMP_PROGRAM
-};
-LampProgram lampMode = RAINBOW_CYCLE;
-uint8_t brightness = 255;
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
-Timer displayTimer;
-
+Lamp lamp = Lamp(NUMPIXELS, PIN);
 
 HttpServer httpServer;
 FTPServer ftpServer;
@@ -35,32 +19,6 @@ BssList networks;
 String network, password;
 Timer connectionTimer;
 
-void displayTaskCallback(){
-  switch(lampMode){
-    case COLORWIPE_WHITE:
-      colorWipeStep(strip, 255 , 255, 255);
-      break;
-    case COLORWIPE_RED:
-      colorWipeStep(strip, 255, 0, 0);
-      break;
-    case COLORWIPE_GREEN:
-      colorWipeStep(strip, 0, 255, 0);
-      break;
-    case COLORWIPE_BLUE:
-      colorWipeStep(strip, 0, 0, 255);
-      break;
-    case RAINBOW:
-      rainbowStep(strip);
-      break;
-    case RAINBOW_CYCLE:
-      rainbowCycleStep(strip);
-      break;
-    default:
-      lampMode = COLORWIPE_WHITE;
-  }
-  strip.setBrightness(brightness);
-  strip.show();
-}
 
 void onIndex(HttpRequest &request, HttpResponse &response)
 {
@@ -255,20 +213,29 @@ void onAjaxSetLampStatus(HttpRequest &request, HttpResponse &response)
 	JsonObjectStream* stream = new JsonObjectStream();
 	JsonObject& json = stream->getRoot();
 
-
-  String param = request.getPostParameter("brightness");
-  if (param.length() > 0){
-    long tmp_param = param.toInt();
-    brightness = (uint8_t)max(0, min(tmp_param, 255));
-  }
-
-  param = request.getPostParameter("program");
-  if (param.length() > 0){
-	  long tmp_param = param.toInt();
-    lampMode = (LampProgram)max(0, min(tmp_param, MAX_LAMP_PROGRAM-1));
-  }
-
 	json["status"] = (bool)true;
+
+	String param = request.getPostParameter("brightness");
+	if (param.length() > 0){
+		long tmp_param = param.toInt();
+		if (tmp_param >= 0 && tmp_param < 256){//check range
+		 	lamp.setBrightness((uint8_t)tmp_param);
+		}else{
+			json["status"] = (bool)false;
+			json["error"] = "brightness outside range";
+		}
+	}
+
+	param = request.getPostParameter("program");
+	if (param.length() > 0){
+		long tmp_param = param.toInt();
+		if (tmp_param >= 0 && tmp_param < Lamp::Program::MAX_PROGRAM){//check range
+			lamp.setMode((Lamp::Program)tmp_param);
+		}else{
+			json["status"] = (bool)false;
+			json["error"] = "program outside range";
+		}
+	}
 
 	response.setAllowCrossDomainOrigin("*");
 	response.sendJsonObject(stream);
@@ -280,7 +247,7 @@ request params:
 response json:
 	[
 		'status': boolean, //always true
-    'brightness': int [0,255],
+		'brightness': int [0,255],
 		'program': int (COLORWIPE_WHITE=0, COLORWIPE_RED = 1, COLORWIPE_GREEN = 2, COLORWIPE_BLUE = 3, RAINBOW = 4, RAINBOW_CYCLE = 5)
 	]
 */
@@ -290,8 +257,8 @@ void onAjaxGetLampStatus(HttpRequest &request, HttpResponse &response)
 	JsonObject& json = stream->getRoot();
 
 	json["status"] = (bool)true;
-  json["brightness"] = brightness;
-  json["program"] = (int)lampMode;
+	json["brightness"] = lamp.getBrightness();
+	json["program"] = (int)lamp.getMode();
 
 	response.setAllowCrossDomainOrigin("*");
 	response.sendJsonObject(stream);
@@ -305,7 +272,7 @@ void startHttpServer()
 	httpServer.addPath("/ajax/get-networks", onAjaxNetworkList);
 	httpServer.addPath("/ajax/connect", onAjaxConnect);
 	httpServer.addPath("/ajax/set-lamp-status", onAjaxSetLampStatus);
-  httpServer.addPath("/ajax/get-lamp-status", onAjaxGetLampStatus);
+	httpServer.addPath("/ajax/get-lamp-status", onAjaxGetLampStatus);
 	httpServer.setDefaultHandler(onFile);
 }
 
@@ -355,9 +322,6 @@ void connectFail()
 	// Start soft access point
 	WifiAccessPoint.enable(true);
 	WifiAccessPoint.config("VTMLamp-" + WifiAccessPoint.getMAC(), "", AUTH_OPEN);
-
-	// use defaults and disable auto connect
-	WifiStation.config(WIFI_SSID, WIFI_PWD, false);
 }
 
 void init()
@@ -370,22 +334,22 @@ void init()
 
 	WifiStation.enable(true);
 
+#if defined(WIFI_SSID) && defined(WIFI_PWD)
+	WifiStation.config(WIFI_SSID, WIFI_PWD);
+#else
 	if (AppSettings.exist()){
 		WifiStation.config(AppSettings.ssid, AppSettings.password);
 		if (!AppSettings.dhcp && !AppSettings.ip.isNull())
 			WifiStation.setIP(AppSettings.ip, AppSettings.netmask, AppSettings.gateway);
 	}
+#endif
 	// Run our method when station was connected to AP (or not connected)
 	WifiStation.waitConnection(connectOk, 20, connectFail); // We recommend 20+ seconds for connection timeout at start
 
 	WifiStation.startScan(networkScanCompleted);
 
-	//init neopixel strip
-	strip.begin();  //init port
-	strip.setBrightness(0);
-	strip.show();
-
-	displayTimer.initializeMs(50, displayTaskCallback).start();
+	lamp.setMode(Lamp::Program::OFF);
+	lamp.start();
 
 	// Run WEB server on system ready
 	System.onReady(startServers);
