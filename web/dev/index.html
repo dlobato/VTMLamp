@@ -27,23 +27,26 @@
                 <li class="disabled"><a href="#">Debug</a></li>
             </ul>
             <ul class="nav navbar-nav navbar-right">
-                <p class="navbar-text">Refresh in {{refreshSeconds}} seconds</p>
-                <li><a href="#">
+                <p class="navbar-text">Refresh in {{store.app.refreshTimer}} seconds</p>
+                <p class="navbar-text">
                     <span v-if="connected" class="label label-success">Connected to {{network}}</span>
                     <span v-if="!connected" class="label label-danger">Not Connected</span>
-                </a></li>
+                </p>
+                <li><a v-link="'/network'">Device Settings</a></li>
             </ul>
         </div><!-- /.navbar-collapse -->
     </div><!-- /.container-fluid -->
 </nav>
-<div class="container">
+<!--<div class="container">
 
     <h1>Hello, {{name || 'World'}}</h1>
     <div class="form-group">
         <label for="name">Name:</label>
         <input type="text" id="name" placeholder="Enter your name" class="form-control" v-model="name">
     </div>
-</div>
+</div>-->
+
+<router-view></router-view>
 <script src="/main.js"></script>
 </body>
 </html>

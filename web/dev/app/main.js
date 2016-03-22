@@ -1,31 +1,32 @@
 var Vue = require('vue');
+var VueRouter = require('vue-router');
+var store = require('./helpers/store');
+Vue.use(require('vue-resource'));
+Vue.use(VueRouter);
+
 require('./helpers/resources').init();
+var endpoints = require('./helpers/endpoints');
 
-new Vue({
-    el: 'body',
-    data: {
-        name: '',
-        connected: false,
-        network: 'Votum',
-        refreshSeconds: 25,
+var router = new VueRouter();
+
+router.map({
+
+    '/': {
+        component: require('./dashboard')
     },
-    methods: {
-        refreshData: function () {
-            setInterval(function () {
-                if (this.refreshSeconds == 0) {
-                    this.refreshSeconds = 25;
 
-                    // For Demo Purposes
-                    this.connected = !this.connected;
+    '/network': {
+        component: require('./network')
+    }
 
-                    return;
-                }
-                this.refreshSeconds = this.refreshSeconds - 1;
-            }.bind(this), 1000);
+});
+
+var App = Vue.extend({
+    data: function () {
+        return {
+            store: store
         }
-    },
-    ready: function () {
-        console.log('Application Ready');
-        this.refreshData();
     }
 });
+
+router.start(App, 'body');
