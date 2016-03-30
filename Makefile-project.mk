@@ -172,14 +172,16 @@ LDFLAGS		= -nostdlib -u call_user_start -Wl,-static -Wl,--gc-sections -Wl,-Map=$
 LD_PATH     = $(SMING_HOME)/compiler/ld/
 LD_SCRIPT	= $(LD_PATH)eagle.app.v6.cpp.ld
 
+flashimageoptions = $(USER_FLASHIMAGEOPTIONS)
+
 ifeq ($(SPI_SPEED), 26)
-	flashimageoptions = -ff 26m
+	flashimageoptions += -ff 26m
 else ifeq ($(SPI_SPEED), 20)
-	flashimageoptions = -ff 20m
+	flashimageoptions += -ff 20m
 else ifeq ($(SPI_SPEED), 80)
-	flashimageoptions = -ff 80m
+	flashimageoptions += -ff 80m
 else
-	flashimageoptions = -ff 40m
+	flashimageoptions += -ff 40m
 endif
 
 ifeq ($(SPI_MODE), qout)

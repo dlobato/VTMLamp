@@ -3,12 +3,14 @@
 
 Lamp::Lamp(const uint8_t numPixels,
 	const uint8_t pin,
-	const uint8_t ledType,
-	const Program p,
-	const uint8_t brightness)
-	: mode(p), brightness(brightness),
-	strip(numPixels, pin, ledType)
+	const uint8_t ledType /*= NEO_GRB + NEO_KHZ800*/,
+	const Program p /*= Program::OFF*/,
+	const Mode m /*= Mode::SOLID*/,
+	const uint8_t brightness /* =0 */)
+	: strip(numPixels, pin, ledType)
 {
+	this->setProgram(p).setMode(m).setBrightness(brightness);
+
 	this->strip.begin();
 	//turn off leds
 	this->strip.setBrightness(0);
@@ -17,17 +19,29 @@ Lamp::Lamp(const uint8_t numPixels,
 
 Lamp::~Lamp(){}
 
-void Lamp::setMode(const Program p){
+Lamp& Lamp::setProgram(const Program p){
 	this->stepCounter = 0;//reset step counter
-	this->mode = p;
+	this->program = p;
+	return *this;
 }
 
-Lamp::Program Lamp::getMode(){
+Lamp::Program Lamp::getProgram(){
+	return this->program;
+}
+
+Lamp& Lamp::setMode(const Mode m){
+	this->mode = m;
+	return *this;
+}
+
+Lamp::Mode Lamp::getMode(){
 	return this->mode;
 }
 
-void Lamp::setBrightness(const uint8_t brightness){
+Lamp& Lamp::setBrightness(const uint8_t brightness){
 	this->brightness = brightness;
+	this->stepBrightness = 1;
+	return *this;
 }
 
 uint8_t Lamp::getBrightness(){
@@ -39,21 +53,21 @@ void Lamp::start(const uint8_t updateIntervalMs){
 }
 
 void Lamp::updateTask(){
-	switch(this->mode){
+	switch(this->program){
 	case Program::OFF:
 		this->brightness = 0;
 		break;
 	case Program::COLORWIPE_WHITE:
-		this->colorWipeStep(255 , 255, 255);
+		this->solidColor(255 , 255, 255);
 		break;
 	case Program::COLORWIPE_RED:
-		this->colorWipeStep(255, 0, 0);
+		this->solidColor(255, 0, 0);
 		break;
 	case Program::COLORWIPE_GREEN:
-		this->colorWipeStep(0, 255, 0);
+		this->solidColor(0, 255, 0);
 		break;
 	case Program::COLORWIPE_BLUE:
-		this->colorWipeStep(0, 0, 255);
+		this->solidColor(0, 0, 255);
 		break;
 	case Program::RAINBOW:
 		this->rainbowStep();
@@ -62,9 +76,28 @@ void Lamp::updateTask(){
 		this->rainbowCycleStep();
 		break;
 	default:
-		this->mode = Program::OFF;
+		this->program = Program::OFF;
 	}
-	this->strip.setBrightness(this->brightness);
+
+	if (this->brightness > 0){
+		switch (this->mode) {
+		case Mode::SOLID:
+			if (this->stepBrightness < this->brightness){
+				this->stepBrightness = this->stepBrightness << 2;/* x2 */
+			}
+			break;
+		case Mode::BLINK:
+			//TODO
+		case Mode::BREATH:
+			//TODO
+		default:
+			this->stepBrightness = this->brightness;
+		}
+	}
+
+	this->stepBrightness = min(this->stepBrightness, this->brightness);//clamp to max this->brightness
+
+	this->strip.setBrightness((uint8_t)this->stepBrightness);
 	this->strip.show();
 
 	//update step counter, rolls at 255 to 0
@@ -75,11 +108,6 @@ void Lamp::solidColor(uint8_t r, uint8_t g, uint8_t b){
 	for(uint16_t i=0; i < this->strip.numPixels(); i++){
 		this->strip.setPixelColor(i, r, g, b);
 	}
-}
-
-void Lamp::colorWipeStep(uint8_t r, uint8_t g, uint8_t b){
-	this->strip.setPixelColor(this->stepCounter, r, g, b);
-	if (this->stepCounter == this->strip.numPixels()) this->stepCounter = 0;
 }
 
 void Lamp::rainbowStep(){

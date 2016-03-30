@@ -8,7 +8,7 @@
 #define PIN            4
 
 // How many NeoPixels are attached to the Esp8266?
-#define NUMPIXELS      2
+#define NUMPIXELS      4
 
 Lamp lamp = Lamp(NUMPIXELS, PIN);
 
@@ -201,11 +201,13 @@ void onAjaxConnect(HttpRequest &request, HttpResponse &response)
 request params:
 	[
 		'brightness': int [0,255],
-		'program': int (COLORWIPE_WHITE=0, COLORWIPE_RED = 1, COLORWIPE_GREEN = 2, COLORWIPE_BLUE = 3, RAINBOW = 4, RAINBOW_CYCLE = 5)
+		'program': int (see Lamp::Program)
+		'mode': int (see Lamp::Mode)
 	]
 response json:
 	[
-		'status': boolean, //always true
+		'status': boolean, //true if params inside specs, false otherwise
+		'error': if status is false the error message
 	]
 */
 void onAjaxSetLampStatus(HttpRequest &request, HttpResponse &response)
@@ -230,7 +232,7 @@ void onAjaxSetLampStatus(HttpRequest &request, HttpResponse &response)
 	if (param.length() > 0){
 		long tmp_param = param.toInt();
 		if (tmp_param >= 0 && tmp_param < Lamp::Program::MAX_PROGRAM){//check range
-			lamp.setMode((Lamp::Program)tmp_param);
+			lamp.setProgram((Lamp::Program)tmp_param);
 		}else{
 			json["status"] = (bool)false;
 			json["error"] = "program outside range";
@@ -248,7 +250,8 @@ response json:
 	[
 		'status': boolean, //always true
 		'brightness': int [0,255],
-		'program': int (COLORWIPE_WHITE=0, COLORWIPE_RED = 1, COLORWIPE_GREEN = 2, COLORWIPE_BLUE = 3, RAINBOW = 4, RAINBOW_CYCLE = 5)
+		'program': int (see Lamp::Program)
+		'mode': int (see Lamp::Mode)
 	]
 */
 void onAjaxGetLampStatus(HttpRequest &request, HttpResponse &response)
@@ -258,7 +261,8 @@ void onAjaxGetLampStatus(HttpRequest &request, HttpResponse &response)
 
 	json["status"] = (bool)true;
 	json["brightness"] = lamp.getBrightness();
-	json["program"] = (int)lamp.getMode();
+	json["program"] = (int)lamp.getProgram();
+	json["mode"] = (int)lamp.getMode();
 
 	response.setAllowCrossDomainOrigin("*");
 	response.sendJsonObject(stream);
@@ -308,7 +312,7 @@ void networkScanCompleted(bool succeeded, BssList list)
 // Will be called when WiFi station was connected to AP
 void connectOk()
 {
-	Serial.println("I'm CONNECTED");
+	Serial.printf("I'm CONNECTED! Go to: http://%s\n", WifiStation.getIP().toString().c_str());
 }
 
 // Will be called when WiFi station timeout was reached
@@ -335,6 +339,7 @@ void init()
 	WifiStation.enable(true);
 
 #if defined(WIFI_SSID) && defined(WIFI_PWD)
+	Serial.printf("Connecting to %s:%s\n", WIFI_SSID, WIFI_PWD);
 	WifiStation.config(WIFI_SSID, WIFI_PWD);
 #else
 	if (AppSettings.exist()){
@@ -348,7 +353,6 @@ void init()
 
 	WifiStation.startScan(networkScanCompleted);
 
-	lamp.setMode(Lamp::Program::OFF);
 	lamp.start();
 
 	// Run WEB server on system ready
